@@ -1,0 +1,56 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 25
+    buildToolsVersion "25.0.2"
+    defaultConfig {
+        applicationId "com.example.liuhaifeng.imdemo"
+        minSdkVersion 17
+        targetSdkVersion 25
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    sourceSets {
+        main {
+            // 设置Jni so文件路径 如果有jniLibs目录就不需要设置，好像手动创建的 jniLibs目录无效
+            jniLibs.srcDirs = ['libs']
+        }
+    }
+}
+
+dependencies {
+    compile fileTree(include: ['*.jar'], dir: 'libs')
+    androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
+        exclude group: 'com.android.support', module: 'support-annotations'
+    })
+    compile 'com.android.support:appcompat-v7:25.0.1'
+    testCompile 'junit:junit:4.12'
+    // LeanCloud 基础包
+    compile 'cn.leancloud.android:avoscloud-sdk:v3.+'
+    // 推送与实时聊天需要的包
+    compile('cn.leancloud.android:avoscloud-push:v3.+@aar') { transitive = true }
+    // LeanCloud 统计包
+    compile 'cn.leancloud.android:avoscloud-statistics:v3.+'
+    // LeanCloud 用户反馈包
+    compile 'cn.leancloud.android:avoscloud-feedback:v3.+@aar'
+    // avoscloud-sns：LeanCloud 第三方登录包
+    compile 'cn.leancloud.android:avoscloud-sns:v3.+@aar'
+    compile 'cn.leancloud.android:qq-sdk:1.6.1-leancloud'
+    // 目前新浪微博官方只提供 jar 包的集成方式
+    // 请手动下载新浪微博 SDK 的 jar 包，将其放在 libs 目录下进行集成
+    // LeanCloud 应用内搜索包
+    compile 'cn.leancloud.android:avoscloud-search:v3.+@aar'
+    //融云依赖包
+    compile project(':IMLib')
+    compile files('libs/Yuntx_IMLib_v5.3.0r.jar')
+    compile 'com.google.android.gms:play-services-gcm:9.4.0'
+    compile 'com.jakewharton:butterknife:5.1.1'
+    compile files('libs/hyphenatechat_3.2.1.jar')
+}
