@@ -60,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
 
                     @Override
                     public void onError(int code, String message) {
-                        Log.d("main", "登录聊天服务器失败！");
+                        Log.d("main", "登录聊天服务器失败！"+message);
                     }
                 });
                 break;
@@ -81,7 +81,7 @@ public class MainActivity extends AppCompatActivity {
                 Initialized();
                 break;
             case R.id.RY:
-                RongIMClient.getInstance().connect("M4J+MyjvkWEJ+kXIjwS3j+HdI10ykBxyEo8ZBoLVp4VkBOyAz4XxilOGtrynngojsKFFBXyZ28dPia6mLhCbhsZse2zTaWTdn5EDoaLzgXw=", new RongIMClient.ConnectCallback(){
+                RongIMClient.getInstance().connect("9xWdH062N6iCrmDZ5/HiDckw6NwCnGCkgc85gkUmVDEfOmBQMqBKVVAh7NjkcWEeKlZeLq2gmTVJ5zylVRJFdg==", new RongIMClient.ConnectCallback(){
                     @Override
                     public void onSuccess(String s) {
                         startActivity(new Intent(MainActivity.this,RYChattingActivity.class));
@@ -89,7 +89,7 @@ public class MainActivity extends AppCompatActivity {
 
                     @Override
                     public void onError(RongIMClient.ErrorCode errorCode) {
-
+                            Log.d("*********",errorCode.toString());
                     }
 
                     @Override
@@ -107,14 +107,7 @@ public class MainActivity extends AppCompatActivity {
     public void Initialized(){
         //判断SDK是否已经初始化
         if(!ECDevice.isInitialized()) {
- /*  initial: ECSDK 初始化接口
-            * 参数：
-            *     inContext - Android应用上下文对象
-            *     inListener - SDK初始化结果回调接口，ECDevice.InitListener
-            *
-            * 说明：示例在应用程序创建时初始化 SDK引用的是Application的上下文，
-            *       开发者可根据开发需要调整。
-            */
+
             ECDevice.initial(MainActivity.this, new ECDevice.InitListener() {
                 @Override
                 public void onInitialized() {

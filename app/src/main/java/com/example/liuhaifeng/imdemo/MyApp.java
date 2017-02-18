@@ -41,7 +41,7 @@ public class MyApp extends Application {
 
         //初始化LeancloudSDK
         // TODO: 2017/1/7  添加 APPID，APPKEY
-        AVOSCloud.initialize(this,"{{kayb5IFFY6i1wVVfv2T16w0c-gzGzoHsz}}","{{CQgEbRumu3bhK89unzdGnbim}}");
+        AVOSCloud.initialize(this,"kayb5IFFY6i1wVVfv2T16w0c-gzGzoHsz","CQgEbRumu3bhK89unzdGnbim");
         AVOSCloud.setDebugLogEnabled(true);
         //初始化融云SDK
         if (getApplicationInfo().packageName.equals(getCurProcessName(getApplicationContext())) ||

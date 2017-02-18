@@ -1,28 +1,42 @@
 package com.example.liuhaifeng.imdemo;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
+import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.os.Handler;
+import android.os.Message;
 import android.provider.MediaStore;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
-import android.view.Gravity;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.Toast;
 
 import com.hyphenate.chat.EMClient;
 import com.hyphenate.chat.EMMessage;
 import com.hyphenate.util.PathUtil;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.logging.LogRecord;
 
 import butterknife.ButterKnife;
 import butterknife.InjectView;
 import butterknife.OnClick;
+
+import static com.example.liuhaifeng.imdemo.Tools.HXSendFile;
+import static com.example.liuhaifeng.imdemo.Tools.HXSendImage;
+import static com.example.liuhaifeng.imdemo.Tools.HXSendMessage;
+import static com.example.liuhaifeng.imdemo.Tools.HXSendVoice;
+import static com.example.liuhaifeng.imdemo.Tools.getPath;
 
 /**
  * Created by liuhaifeng on 2017/2/13.
@@ -33,16 +47,28 @@ public class HXChattingActivity extends AppCompatActivity {
     protected static final int REQUEST_CODE_CAMERA = 2;
     protected File cameraFile;
     protected static final int REQUEST_CODE_LOCAL = 3;
-
+    private MediaRecorder mr = null;
+    int length=0;
+    int i=0;
+    private TimerTask timerTask;
+    private Timer timer;
+    String VoicePath=null;
     @InjectView(R.id.btn_send_message)
     Button btnSendMessage;
     @InjectView(R.id.btn_send_image)
     Button btnSendImage;
-    @InjectView(R.id.btn_send_Voice)
-    Button btnSendVoice;
     @InjectView(R.id.btn_send_File)
     Button btnSendFile;
-
+    @InjectView(R.id.btn_send_Voice)
+    Button btnSendVoice;
+    private Handler mhandler=new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            btnSendVoice.setText(msg.arg1+"");
+            length=msg.arg1;
+            starttime();
+        }
+    };
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -50,15 +76,11 @@ public class HXChattingActivity extends AppCompatActivity {
         ButterKnife.inject(this);
 
     }
-
     @OnClick({R.id.btn_send_message, R.id.btn_send_image, R.id.btn_send_Voice, R.id.btn_send_File})
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.btn_send_message:
-                EMMessage message = EMMessage.createTxtSendMessage("这是文本消息", "111111");
-
-                //发送消息
-                EMClient.getInstance().chatManager().sendMessage(message);
+                HXSendMessage("这是文本信息","111111");
                 break;
             case R.id.btn_send_image:
                 cameraFile = new File(PathUtil.getInstance().getImagePath(), EMClient.getInstance().getCurrentUser()
@@ -66,54 +88,52 @@ public class HXChattingActivity extends AppCompatActivity {
                 //noinspection ResultOfMethodCallIgnored
                 cameraFile.getParentFile().mkdirs();
                 startActivityForResult(
-                    new Intent(MediaStore.ACTION_IMAGE_CAPTURE).putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(cameraFile)),
-                    REQUEST_CODE_CAMERA);
-
-                //imagePath为图片本地路径，false为不发送原图（默认超过100k的图片会压缩后发给对方），需要发送原图传true
-
+                        new Intent(MediaStore.ACTION_IMAGE_CAPTURE).putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(cameraFile)),
+                        REQUEST_CODE_CAMERA);
                 break;
             case R.id.btn_send_Voice:
-               // EMMessage message1 = EMMessage.createVoiceSendMessage(filePath, length, "111111");
-
-               // EMClient.getInstance().chatManager().sendMessage(message1);
+                    if(btnSendVoice.getText().equals("开始录音")){
+                        startRecord();
+                    }else {
+                        btnSendVoice.setText("开始录音");
+                        stopRecord();
+                        HXSendVoice(VoicePath,length,"111111");
+                     }
                 break;
             case R.id.btn_send_File:
-                Intent intent;
-                if (Build.VERSION.SDK_INT < 19) {
-                    intent = new Intent(Intent.ACTION_GET_CONTENT);
-                    intent.setType("txt/*");
-
-                } else {
-                    intent = new Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-                }
-                startActivityForResult(intent, REQUEST_CODE_LOCAL);
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                intent.setType("*/*");
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                startActivityForResult( Intent.createChooser(intent, "请选择文件"), 1);
                 break;
         }
     }
-
-
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == REQUEST_CODE_CAMERA) { // capture new image
                 if (cameraFile != null && cameraFile.exists())
-                    sendImageMessage(cameraFile.getAbsolutePath());
+               HXSendImage(cameraFile.getAbsolutePath(),false,"111111");
             } else if (requestCode == REQUEST_CODE_LOCAL) { // send local image
                 if (data != null) {
                     Uri selectedImage = data.getData();
                     if (selectedImage != null) {
-                        sendPicByUri(selectedImage);
+                        getPicByUri(selectedImage);
                     }
                 }
+            }else if(requestCode==1){
+                if (resultCode == RESULT_OK) {
+                    // Get the Uri of the selected file
+                    Uri uri = data.getData();
+                    String path = getPath(this, uri);
+                    HXSendFile(path,"111111");
+                }
             }
-
-
         }
     }
-
-    protected void sendPicByUri(Uri selectedImage) {
-        String[] filePathColumn = { MediaStore.Images.Media.DATA };
+    protected void getPicByUri(Uri selectedImage) {
+        String[] filePathColumn = {MediaStore.Images.Media.DATA};
         Cursor cursor = HXChattingActivity.this.getContentResolver().query(selectedImage, filePathColumn, null, null, null);
         if (cursor != null) {
             cursor.moveToFirst();
@@ -126,7 +146,7 @@ public class HXChattingActivity extends AppCompatActivity {
 
                 return;
             }
-            sendImageMessage(picturePath);
+            HXSendImage(picturePath,false,"111111");
         } else {
             File file = new File(selectedImage.getPath());
             if (!file.exists()) {
@@ -134,56 +154,71 @@ public class HXChattingActivity extends AppCompatActivity {
                 return;
 
             }
-            sendImageMessage(file.getAbsolutePath());
+            HXSendImage(file.getAbsolutePath(),false,"111111");
+
         }
 
     }
-    protected void sendImageMessage(String imagePath) {
-        EMMessage message2 = EMMessage.createImageSendMessage(imagePath, false, "111111");
-        EMClient.getInstance().chatManager().sendMessage(message2);
-    }
-    protected void sendFileByUri(Uri uri){
-        String filePath = null;
-        if ("content".equalsIgnoreCase(uri.getScheme())) {
-            String[] filePathColumn = { MediaStore.Images.Media.DATA };
-            Cursor cursor = null;
-
-            try {
-                cursor = HXChattingActivity.this.getContentResolver().query(uri, filePathColumn, null, null, null);
-                int column_index = cursor.getColumnIndexOrThrow("_data");
-                if (cursor.moveToFirst()) {
-                    filePath = cursor.getString(column_index);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            } finally {
-                if (cursor != null) {
-                    cursor.close();
+    //开始录制
+    private void startRecord(){
+        if(mr == null){
+            File dir = new File(Environment.getExternalStorageDirectory(),"sounds");
+            if(!dir.exists()){
+                dir.mkdirs();
+            }
+            File soundFile = new File(dir,System.currentTimeMillis()+".amr");
+            if(!soundFile.exists()){
+                try {
+                    soundFile.createNewFile();
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
             }
-        } else if ("file".equalsIgnoreCase(uri.getScheme())) {
-            filePath = uri.getPath();
+            mr = new MediaRecorder();
+            mr.setAudioSource(MediaRecorder.AudioSource.MIC);  //音频输入源
+            mr.setOutputFormat(MediaRecorder.OutputFormat.AMR_WB);   //设置输出格式
+            mr.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_WB);   //设置编码格式
+            mr.setOutputFile(soundFile.getAbsolutePath());
+            VoicePath=soundFile.getAbsolutePath();
+            try {
+                mr.prepare();
+                mr.start();
+                starttime();
+                //开始录制
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
         }
-        if (filePath == null) {
-            return;
+
+
+    }
+    //停止录制，资源释放
+    private void stopRecord(){
+        if(mr != null){
+            mr.stop();
+            mr.release();
+            mr = null;
+            timer.cancel();
+            i=0;
         }
-        File file = new File(filePath);
-        if (!file.exists()) {
-           // Toast.makeText(getActivity(), R.string.File_does_not_exist, Toast.LENGTH_SHORT).show();
-            return;
+    }
+    public void starttime(){
+        if(timer==null){
+            timer=new Timer();
         }
-        //limit the size < 10M
-        if (file.length() > 10 * 1024 * 1024) {
-         //   Toast.makeText(getActivity(), R.string.The_file_is_not_greater_than_10_m, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        sendFileMessage(filePath);
+        timer=new Timer();
+        timerTask=new TimerTask() {
+            @Override
+            public void run() {
+                i++;
+                Message message=Message.obtain();
+                message.arg1=i;
+                mhandler.sendMessage(message);
+            }
+        };
+        timer.schedule(timerTask,1000);
     }
 
-    protected void sendFileMessage(String filePath) {
-        EMMessage message3 = EMMessage.createFileSendMessage(filePath,"111111");
-        EMClient.getInstance().chatManager().sendMessage(message3);
-    }
 }
 
-//融云

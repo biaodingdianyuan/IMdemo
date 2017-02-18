@@ -1,8 +1,15 @@
 package com.example.liuhaifeng.imdemo;
 
+import android.content.ContentResolver;
 import android.content.Intent;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
+import android.os.Handler;
+import android.os.Message;
 import android.provider.MediaStore;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
@@ -21,10 +28,21 @@ import com.yuntongxun.ecsdk.im.ECTextMessageBody;
 import com.yuntongxun.ecsdk.im.ECVoiceMessageBody;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import butterknife.ButterKnife;
 import butterknife.InjectView;
 import butterknife.OnClick;
+
+import static android.R.attr.path;
+import static com.example.liuhaifeng.imdemo.Tools.LCSendImage;
+import static com.example.liuhaifeng.imdemo.Tools.RLYSendFile;
+import static com.example.liuhaifeng.imdemo.Tools.RLYSendImage;
+import static com.example.liuhaifeng.imdemo.Tools.RLYSendMessage;
+import static com.example.liuhaifeng.imdemo.Tools.RLYSendVoice;
+import static com.example.liuhaifeng.imdemo.Tools.getPath;
 
 /**
  * Created by liuhaifeng on 2017/2/13.
@@ -32,7 +50,13 @@ import butterknife.OnClick;
 
 public class RLYChattingActivity extends AppCompatActivity {
     protected File cameraFile;
-
+    private MediaRecorder mr = null;
+    int length=0;
+    int i=0;
+    private TimerTask timerTask;
+    private Timer timer;
+    private String path=null;
+    String VoicePath=null;
         @InjectView(R.id.btn_ply_message)
     Button btnPlyMessage;
     @InjectView(R.id.btn_ply_image)
@@ -41,7 +65,14 @@ public class RLYChattingActivity extends AppCompatActivity {
     Button btnPlyVoice;
     @InjectView(R.id.btn_ply_file)
     Button btnPlyFile;
-
+    private Handler mhandler=new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            btnPlyVoice.setText(msg.arg1+"");
+            length=msg.arg1;
+            starttime();
+        }
+    };
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -53,133 +84,121 @@ public class RLYChattingActivity extends AppCompatActivity {
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.btn_ply_message:
-
-                // 组建一个待发送的ECMessage
-                ECMessage msg = ECMessage.createECMessage(ECMessage.Type.TXT);
-                //如果需要跨应用发送消息，需通过appkey+英文井号+用户帐号的方式拼接，发送录音、发送群组消息等与此方式一致。
-                //例如：appkey=20150314000000110000000000000010
-//                帐号ID=john
-//                传入帐号=20150314000000110000000000000010#john
-                //msg.setTo(""appkey#John的账号");
-                // 设置消息接收者
-                msg.setTo("8a216da859204cc9015929b9cf1c059b#8018313400000009");
-
-                // 创建一个文本消息体，并添加到消息对象中
-                ECTextMessageBody msgBody = new ECTextMessageBody("这是文本消息");
-
-                // 将消息体存放到ECMessage中
-                msg.setBody(msgBody);
-                // 调用SDK发送接口发送消息到服务器
-                ECChatManager manager = ECDevice.getECChatManager();
-                manager.sendMessage(msg, new ECChatManager.OnSendMessageListener() {
-                    @Override
-                    public void onSendMessageComplete(ECError error, ECMessage message) {
-                        // 处理消息发送结果
-                        if(message == null) {
-                            return ;
-                        }
-                        // 将发送的消息更新到本地数据库并刷新UI
-                    }
-
-                    @Override
-                    public void onProgress(String msgId, int totalByte, int progressByte) {
-                        // 处理文件发送上传进度（尽上传文件、图片时候SDK回调该方法）
-                    }
-                });
+                RLYSendMessage();
 
                 break;
             case R.id.btn_ply_image:
-                ECMessage msg1 = ECMessage.createECMessage(ECMessage.Type.IMAGE);
+                Intent intent = new Intent(Intent.ACTION_PICK, null);
+                intent.setDataAndType(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "image/*");
+                startActivityForResult(intent, 0);
 
-                ECImageMessageBody msgBody1  = new ECImageMessageBody();
-                // 设置附件名
-                msgBody1.setFileName("Tony_2015.jpg");
-                // 设置附件扩展名
-                msgBody1.setFileExt("jpg");
-                // 设置附件本地路径
-                msgBody1.setLocalUrl("");
-                msg1.setBody(msgBody1);
-                // 调用SDK发送接口发送消息到服务器
-                ECChatManager manager1 = ECDevice.getECChatManager();
-                manager1.sendMessage(msg1, new ECChatManager.OnSendMessageListener() {
-                    @Override
-                    public void onSendMessageComplete(ECError error, ECMessage message) {
-                        // 处理消息发送结果
-                        if(message == null) {
-                            return ;
-                        }
-                        // 将发送的消息更新到本地数据库并刷新UI
-                    }
-
-                    @Override
-                    public void onProgress(String msgId, int totalByte, int progressByte) {
-                        // 处理文件发送上传进度（尽上传文件、图片时候SDK回调该方法）
-                    }
-                });
 
                 break;
             case R.id.btn_ply_voice:
-                ECMessage msg2 = ECMessage.createECMessage(ECMessage.Type.VOICE);
-                File file=null;
-                ECVoiceMessageBody voiceMessage=new ECVoiceMessageBody(file,0);
-                msg2.setBody(voiceMessage);
-
-                ECChatManager manager2 = ECDevice.getECChatManager();
-                manager2.sendMessage(msg2, new ECChatManager.OnSendMessageListener() {
-                    @Override
-                    public void onSendMessageComplete(ECError error, ECMessage message) {
-                        // 处理消息发送结果
-                        if(message == null) {
-                            return ;
-                        }
-                        // 将发送的消息更新到本地数据库并刷新UI
-                    }
-
-                    @Override
-                    public void onProgress(String msgId, int totalByte, int progressByte) {
-                        // 处理文件发送上传进度（尽上传文件、图片时候SDK回调该方法）
-                    }
-                });
+                if(btnPlyVoice.getText().equals("发送语言")){
+                    startRecord();
+                }else {
+                    btnPlyVoice.setText("发送语言");
+                    stopRecord();
+                    RLYSendVoice(VoicePath);
+                }
                 break;
             case R.id.btn_ply_file:
-                ECMessage msg3 = ECMessage.createECMessage(ECMessage.Type.FILE);
-
-                ECFileMessageBody msgBody3  = new ECFileMessageBody();
-                // 设置附件名
-                msgBody3.setFileName("Tony_2015.zip");
-                // 设置附件扩展名
-                msgBody3.setFileExt("");
-                // 设置附件本地路径
-                msgBody3.setLocalUrl("../Tony_2015.zip");
-                // 设置附件长度
-               // msgBody3.setLength("");
-
-                // 将消息体存放到ECMessage中
-                msg3.setBody(msgBody3);
-                // 调用SDK发送接口发送消息到服务器
-                ECChatManager manager3 = ECDevice.getECChatManager();
-                manager3.sendMessage(msg3, new ECChatManager.OnSendMessageListener() {
-                    @Override
-                    public void onSendMessageComplete(ECError error, ECMessage message) {
-                        // 处理消息发送结果
-                        if(message == null) {
-                            return ;
-                        }
-                        // 将发送的消息更新到本地数据库并刷新UI
-                    }
-
-                    @Override
-                    public void onProgress(String msgId, int totalByte, int progressByte) {
-                        // 处理文件发送上传进度（尽上传文件、图片时候SDK回调该方法）
-                    }
-                });
+                Intent intent1 = new Intent(Intent.ACTION_GET_CONTENT);
+                intent1.setType("*/*");
+                intent1.addCategory(Intent.CATEGORY_OPENABLE);
+                startActivityForResult( Intent.createChooser(intent1, "请选择文件"), 1);
                 break;
         }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        Bitmap bm = null;
+        ContentResolver resolver = getContentResolver();
+        if(requestCode==1){
+            Uri uri=data.getData();
+            String path=getPath(RLYChattingActivity.this,uri);
+            RLYSendFile(path);
+
+        }else if(requestCode==3){
+
+            try {
+                Uri originalUri = data.getData(); // 获得图片的uri
+                bm = MediaStore.Images.Media.getBitmap(resolver, originalUri);
+                String[] proj = { MediaStore.Images.Media.DATA };
+                Cursor cursor = managedQuery(originalUri, proj, null, null, null);
+                int column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+                cursor.moveToFirst();
+                path = cursor.getString(column_index);
+                RLYSendImage(path);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+        }
         super.onActivityResult(requestCode, resultCode, data);
 
+    }
+
+    //开始录制
+    private void startRecord(){
+        if(mr == null){
+            File dir = new File(Environment.getExternalStorageDirectory(),"sounds");
+            if(!dir.exists()){
+                dir.mkdirs();
+            }
+            File soundFile = new File(dir,System.currentTimeMillis()+".amr");
+            if(!soundFile.exists()){
+                try {
+                    soundFile.createNewFile();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            mr = new MediaRecorder();
+            mr.setAudioSource(MediaRecorder.AudioSource.MIC);  //音频输入源
+            mr.setOutputFormat(MediaRecorder.OutputFormat.AMR_WB);   //设置输出格式
+            mr.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_WB);   //设置编码格式
+            mr.setOutputFile(soundFile.getAbsolutePath());
+            VoicePath=soundFile.getAbsolutePath();
+            try {
+                mr.prepare();
+                mr.start();
+                starttime();
+                //开始录制
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+        }
+
+
+    }
+    //停止录制，资源释放
+    private void stopRecord(){
+        if(mr != null){
+            mr.stop();
+            mr.release();
+            mr = null;
+            timer.cancel();
+            i=0;
+        }
+    }
+    public void starttime(){
+        if(timer==null){
+            timer=new Timer();
+        }
+        timer=new Timer();
+        timerTask=new TimerTask() {
+            @Override
+            public void run() {
+                i++;
+                Message message=Message.obtain();
+                message.arg1=i;
+                mhandler.sendMessage(message);
+            }
+        };
+        timer.schedule(timerTask,1000);
     }
 }
